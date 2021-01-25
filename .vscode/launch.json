@@ -2,7 +2,7 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"type": "extensionHost",
+			"type": "pwa-extensionHost",
 			"request": "launch",
 			"name": "Launch Extension",
 			"runtimeExecutable": "${execPath}",
@@ -10,6 +10,12 @@
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
 			],
+			"cwd": "${workspaceFolder}",
+			"debugWebviews": true,
+			"rendererDebugOptions": {
+				"sourceMaps": true,
+				"webRoot": "${workspaceFolder}/webviews",
+			},
 			"skipFiles": [
 				"<node_internals>/**/*.js",
 				"**/node_modules/**/*.js"
@@ -39,6 +45,32 @@
 			"outFiles": [
 				"${workspaceFolder}/dist/browser/*.js"
 			]
+		},
+		{
+			"type": "pwa-extensionHost",
+			"request": "launch",
+			"name": "Watch & Launch Extension",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--disable-extension=GitHub.vscode-pull-request-github-insiders"
+			],
+			"cwd": "${workspaceFolder}",
+			"debugWebviews": true,
+			"rendererDebugOptions": {
+				"sourceMaps": true,
+				"webRoot": "${workspaceFolder}/webviews",
+			},
+			"outFiles": [
+				"${workspaceFolder}/media/*.js"
+			],
+			"preLaunchTask": "${defaultBuildTask}",
+			"skipFiles": [
+				"<node_internals>/**/*.js",
+				"**/node_modules/**/*.js"
+			],
+			"smartStep": true,
+			"sourceMaps": true
 		},
 		{
 			"name": "Extension Tests",

@@ -49,7 +49,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	readonly onDidChangeSelectedBranch: vscode.Event<string> = this._onDidChangeSelectedBranch.event;
 
 	constructor(
-		private readonly _extensionUri: vscode.Uri,
+		private readonly _context: vscode.ExtensionContext,
 		private readonly _folderRepositoryManager: FolderRepositoryManager,
 		private readonly _pullRequestDefaults: PullRequestDefaults,
 		private readonly _isDraft: boolean
@@ -71,7 +71,7 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 			enableScripts: true,
 
 			localResourceRoots: [
-				this._extensionUri
+				this._context.extensionUri
 			]
 		};
 
@@ -270,19 +270,28 @@ export class CreatePullRequestViewProvider extends WebviewViewBase implements vs
 	private _getHtmlForWebview() {
 		const nonce = getNonce();
 
-		return `<!DOCTYPE html>
-		<html lang="en">
-		<head>
-			<meta charset="UTF-8">
-			<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
-			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		let content = webviewContent;
 
-			<title>Create Pull Request</title>
-		</head>
-		<body>
-			<div id="app"></div>
-			<script nonce="${nonce}">${webviewContent}</script>
-		</body>
-		</html>`;
+		let src = '';
+		if (this._context.extensionMode === vscode.ExtensionMode.Development) {
+			const uri = vscode.Uri.joinPath(this._context.extensionUri, 'media', 'createPR-webviewIndex.js');
+			src = ` src="${this._webview!.asWebviewUri(uri).toString()}"`;
+			content = '';
+		}
+
+		return `<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src vscode-resource: https:; script-src 'nonce-${nonce}'; style-src vscode-resource: 'unsafe-inline' http: https: data:;">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+		<title>Create Pull Request</title>
+	</head>
+	<body>
+		<div id="app"></div>
+		<script nonce="${nonce}"${src}>${content}</script>
+	</body>
+</html>`;
 	}
 }

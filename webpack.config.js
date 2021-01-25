@@ -43,8 +43,8 @@ module.exports = function (env) {
 	env.production = !!env.production;
 	return [
 		getExtensionConfig(env),
-		base.getWebviewConfig(env, './webviews/editorWebview/index.ts', 'webviewIndex.js'),
-		base.getWebviewConfig(env, './webviews/activityBarView/index.ts', 'activityBar-webviewIndex.js'),
-		base.getWebviewConfig(env, './webviews/createPullRequestView/index.ts', 'createPR-webviewIndex.js')
+		base.getWebviewConfig(env, './editorWebview/index.ts', 'webviewIndex.js'),
+		base.getWebviewConfig(env, './activityBarView/index.ts', 'activityBar-webviewIndex.js'),
+		base.getWebviewConfig(env, './createPullRequestView/index.ts', 'createPR-webviewIndex.js')
 	];
 };

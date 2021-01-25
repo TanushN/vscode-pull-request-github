@@ -46,12 +46,12 @@ export class CreatePullRequestHelper {
 		}));
 	}
 
-	async create(extensionUri: vscode.Uri, folderRepoManager: FolderRepositoryManager, isDraft: boolean) {
+	async create(context: vscode.ExtensionContext, folderRepoManager: FolderRepositoryManager, isDraft: boolean) {
 		vscode.commands.executeCommand('setContext', 'github:createPullRequest', true);
 		if (!this._createPRViewProvider) {
 			const pullRequestDefaults = await folderRepoManager.getPullRequestDefaults();
 
-			this._createPRViewProvider = new CreatePullRequestViewProvider(extensionUri, folderRepoManager, pullRequestDefaults, !!isDraft);
+			this._createPRViewProvider = new CreatePullRequestViewProvider(context, folderRepoManager, pullRequestDefaults, !!isDraft);
 			this._treeView = new CompareChangesTreeProvider(this.repository, pullRequestDefaults.owner, pullRequestDefaults.base, folderRepoManager);
 
 			this.registerListeners();

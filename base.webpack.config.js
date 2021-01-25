@@ -4,9 +4,12 @@ const TSLintPlugin = require('tslint-webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 
 function getWebviewConfig(env, entry, outputFilename) {
+	const basePath = path.join(__dirname, 'webviews');
+
 	/** @type webpack.Configuration */
 	let webview = {
 		name: outputFilename,
+		context: basePath,
 		mode: env.production ? 'production' : 'development',
 		entry: {
 			index: entry
@@ -29,12 +32,14 @@ function getWebviewConfig(env, entry, outputFilename) {
 			]
 		},
 		resolve: {
-			extensions: ['.tsx', '.ts', '.js', '.svg']
+			extensions: ['.tsx', '.ts', '.js', '.svg'],
+			modules: [basePath, 'node_modules'],
 		},
-		devtool: !env.production ? 'inline-source-map' : undefined,
+		devtool: !env.production ? 'source-map' : undefined,
 		output: {
 			filename: outputFilename,
-			path: path.resolve(__dirname, 'media')
+			path: path.resolve(__dirname, 'media'),
+			publicPath: path.join(__dirname, 'media')
 		},
 		plugins: [
 			new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/),
