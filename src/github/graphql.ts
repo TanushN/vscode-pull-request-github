@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ForkDetails } from './githubRepository';
+import { IMilestone } from './interface';
 
 export interface MergedEvent {
 	__typename: string;
@@ -544,6 +545,13 @@ export interface StatusContext {
 	context: string;
 	targetUrl?: string;
 	avatarUrl?: string;
+}
+export interface UpdateMilestone {
+	updateMilestone: {
+		pullRequest: {
+			milestone: IMilestone
+		}
+	}
 }
 
 export interface CheckRun {

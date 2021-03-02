@@ -6,7 +6,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { GithubItemStateEnum, ReviewEvent, ReviewState, IAccount, MergeMethodsAvailability, MergeMethod, ISuggestedReviewer } from './interface';
+import { GithubItemStateEnum, ReviewEvent, ReviewState, IAccount, MergeMethodsAvailability, MergeMethod, ISuggestedReviewer, AssigneeState } from './interface';
 import { formatError } from '../common/utils';
 import { IComment } from '../common/comment';
 import Logger from '../common/logger';
@@ -30,7 +30,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 	protected _item: PullRequestModel;
 	private _repositoryDefaultBranch: string;
 	private _existingReviewers: ReviewState[];
-
+	private _existingAssignees: AssigneeState[];
 	private _changeActivePullRequestListener: vscode.Disposable | undefined;
 
 	public static async createOrShow(extensionPath: string, folderRepositoryManager: FolderRepositoryManager, issue: PullRequestModel, toTheSide: Boolean = false) {
@@ -120,6 +120,12 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			const preferredMergeMethod = vscode.workspace.getConfiguration('githubPullRequests').get<MergeMethod>('defaultMergeMethod');
 			const defaultMergeMethod = getDefaultMergeMethod(mergeMethodsAvailability, preferredMergeMethod);
 			this._existingReviewers = parseReviewers(requestedReviewers!, timelineEvents!, pullRequest.author);
+			this._existingAssignees = pullRequest.assignees?.map(item => {
+				return {
+					assignee: item,
+					state: "REQUESTED"
+				}
+			}) || [];
 
 			Logger.debug('pr.initialize', PullRequestOverviewPanel.ID);
 			this._postMessage({
@@ -152,6 +158,8 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 					isDraft: pullRequest.isDraft,
 					mergeMethodsAvailability,
 					defaultMergeMethod,
+					milestone: pullRequest.milestone,
+					assignees: pullRequest.assignees,
 					isIssue: false
 				}
 			});
@@ -211,6 +219,10 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 			case 'pr.add-reviewers':
 				return this.addReviewers(message);
 			case 'pr.remove-reviewer':
+			case 'pr.add-milestones':
+				return this.addMilestones(message);
+			case 'pr.add-assignees':
+				return this.addAssignees(message);
 				return this.removeReviewer(message);
 			case 'pr.copy-prlink':
 				return this.copyPrLink(message);
@@ -266,6 +278,54 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		return reviewers;
 	}
 
+	private getAssigneesQuickPickItems(assignableUsers: IAccount[], suggestedReviewers: ISuggestedReviewer[] | undefined): vscode.QuickPickItem[] {
+		if (!suggestedReviewers) {
+			return [];
+		}
+		// used to track logins that shouldn't be added to pick list
+		// e.g. author, existing and already added reviewers
+		const skipList: Set<string> = new Set([
+			...this._existingAssignees.map(assignee => assignee.assignee.login)
+		]);
+
+		const assignees: vscode.QuickPickItem[] = [];
+		for (const { login, name, isAuthor, isCommenter } of suggestedReviewers) {
+			if (skipList.has(login)) {
+				continue;
+			}
+
+			const suggestionReason: string =
+				isAuthor && isCommenter
+					? 'Recently edited and reviewed changes to these files'
+					: isAuthor
+						? 'Recently edited these files'
+						: isCommenter
+							? 'Recently reviewed changes to these files'
+							: 'Suggested reviewer';
+
+			assignees.push({
+				label: login,
+				description: name,
+				detail: suggestionReason
+			});
+			// this user shouldn't be added later from assignable users list
+			skipList.add(login);
+		}
+
+		for (const { login, name } of assignableUsers) {
+			if (skipList.has(login)) {
+				continue;
+			}
+
+			assignees.push({
+				label: login,
+				description: name
+			});
+		}
+
+		return assignees;
+	}
+
 	private async addReviewers(message: IRequestMessage<void>): Promise<void> {
 		try {
 			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
@@ -299,6 +359,75 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
+	private async addMilestones(message: IRequestMessage<void>): Promise<void>{
+		try {
+			const milestones = await this._folderRepositoryManager.getMilestones();
+
+			const milestoneLabels = [];
+			for (var i = 0; i < milestones.items.length; i++) {
+				milestoneLabels.push({label: milestones.items[i].milestone.title, id:milestones.items[i].milestone.id});
+			}
+			const milestonesToAdd = await vscode.window.showQuickPick(
+				milestoneLabels,
+				{
+					canPickMany: false
+				}
+			);
+
+			if(milestonesToAdd){
+				var updated = milestones.items.find(item => item.milestone.id == milestonesToAdd.id)?.milestone;
+				var task = await this._item.updateMilestone(milestonesToAdd.id);
+				this._replyMessage(message, {
+					added: updated
+				});
+
+			}
+
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+	private async addAssignees(message: IRequestMessage<void>): Promise<void> {
+		try {
+			const allAssignableUsers = await this._folderRepositoryManager.getAssignableUsers();
+			const assignableUsers = allAssignableUsers[this._item.remote.remoteName];
+
+			const assigneesToAdd = await vscode.window.showQuickPick(
+				this.getAssigneesQuickPickItems(assignableUsers, []),
+				{
+					canPickMany: true,
+					matchOnDescription: true
+				}
+			);
+
+			if (assigneesToAdd) {
+
+				const addedAsignees: AssigneeState[] = assigneesToAdd.map(assignee => {
+					return {
+						// assumes that suggested reviewers will be a subset of assignable users
+						assignee: assignableUsers.find(r => r.login === assignee.label)!,
+						state: 'REQUESTED'
+					};
+				});
+
+				this._existingAssignees = this._existingAssignees.concat(addedAsignees);
+
+				var ids = [];
+				for(var i = 0; i < this._existingAssignees.length; i++){
+					ids.push(this._existingAssignees[i].assignee.login);
+				}
+				const task = await this._item.updateAssignees(ids);
+
+				this._replyMessage(message, {
+					added: addedAsignees
+				});
+			}
+		} catch (e) {
+			vscode.window.showErrorMessage(formatError(e));
+		}
+	}
+
+
 	private async removeReviewer(message: IRequestMessage<string>): Promise<void> {
 		try {
 			await this._item.deleteReviewRequest(message.args);
@@ -312,6 +441,7 @@ export class PullRequestOverviewPanel extends IssueOverviewPanel {
 		}
 	}
 
+	
 	private async applyPatch(message: IRequestMessage<{ comment: IComment }>): Promise<void> {
 		try {
 			const comment = message.args.comment;

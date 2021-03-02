@@ -15,6 +15,11 @@ export enum ReviewEvent {
 	Comment = 'COMMENT'
 }
 
+export interface AssigneeState {
+	assignee: IAccount;
+	state: string;
+}
+
 export enum GithubItemStateEnum {
 	Open,
 	Merged,
