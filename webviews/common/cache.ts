@@ -3,14 +3,24 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { vscode } from './message';
-import { GithubItemStateEnum, IAccount, ReviewState, ILabel, MergeMethod, MergeMethodsAvailability, PullRequestMergeability, PullRequestChecks } from '../../src/github/interface';
 import { TimelineEvent } from '../../src/common/timelineEvent';
+import {
+	GithubItemStateEnum,
+	IAccount,
+	ILabel,
+	IMilestone,
+	MergeMethod,
+	MergeMethodsAvailability,
+	PullRequestChecks,
+	PullRequestMergeability,
+	ReviewState,
+} from '../../src/github/interface';
+import { vscode } from './message';
 
 export enum ReviewType {
 	Comment = 'comment',
 	Approve = 'approve',
-	RequestChanges = 'requestChanges'
+	RequestChanges = 'requestChanges',
 }
 
 export interface PullRequest {
@@ -27,7 +37,9 @@ export interface PullRequest {
 	base: string;
 	head: string;
 	labels: ILabel[];
+	assignees: IAccount[];
 	commitsCount: number;
+	milestone: IMilestone;
 	repositoryDefaultBranch: any;
 	/**
 	 * User can edit PR title and description (author or user with push access)
@@ -39,7 +51,7 @@ export interface PullRequest {
 	 */
 	hasWritePermission: boolean;
 	pendingCommentText?: string;
-	pendingCommentDrafts?: { [key: string]: string; };
+	pendingCommentDrafts?: { [key: string]: string };
 	pendingReviewType?: ReviewType;
 	status: PullRequestChecks;
 	mergeable: PullRequestMergeability;
@@ -59,12 +71,13 @@ export function getState(): PullRequest {
 export function setState(pullRequest: PullRequest): void {
 	const oldPullRequest = getState();
 
-	if (oldPullRequest &&
-		oldPullRequest.number && oldPullRequest.number === pullRequest.number) {
+	if (oldPullRequest && oldPullRequest.number && oldPullRequest.number === pullRequest.number) {
 		pullRequest.pendingCommentText = oldPullRequest.pendingCommentText;
 	}
 
-	if (pullRequest) { vscode.setState(pullRequest); }
+	if (pullRequest) {
+		vscode.setState(pullRequest);
+	}
 }
 
 export function updateState(data: Partial<PullRequest>): void {
